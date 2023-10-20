@@ -4,7 +4,7 @@
 # ***** DATA PREPROCESSING *****
 
 # Setting the working directory
-setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\Phase1")
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase1")
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
@@ -21,7 +21,7 @@ print(nrow(dataset)) # We now have 3585 rows with no missing values
 dataset <- unique(dataset) 
 print(nrow(dataset)) # No duplicate rows, we still have 3585
 
-# Scaling numeric variables to ensure they are on a similar scale (lat and lng)
+# Scaling numeric variables (lat and lng)
 dataset$lat <- scale(dataset$lat)
 dataset$lng <- scale(dataset$lng)
 
