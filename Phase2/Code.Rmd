@@ -1,0 +1,477 @@
+---
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+Joe Wehbe 202000908 - Roula Ghaleb 202001243
+
+
+The dataset represents records of police stops in Louisville over a specific period of time. In this project, we aim to predict the subject_sex attribute. 
+The dataset consists of 3585 rows and 29 columns after pre-processing.
+
+In this project, we build 5 models, each one using different techniques and measures:
+- Logistic Regression with 10-fold cross validation and forward selection using AIC
+- Logistic Regression with 10-fold Cross-Validation and forward selection using BIC
+- Logistic Regression with 10-fold Cross-Validation and forward selection using adjusted R-squared
+- Linear Discriminant Analysis
+- Quadratic Discriminant Analysis
+
+
+Installing and importing libraries
+```{r}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+```
+
+```{r}
+# Installing needed packages
+install.packages("caTools")
+install.packages("caret")
+install.packages("MASS")
+```
+
+```{r}
+# Importing needed libraries
+library(caTools)
+library(caret)
+library(MASS)
+library(pROC)
+```
+
+
+Logistic Regression with 10-fold cross validation and forward selection using AIC
+```{r}
+
+# -------------- PREPROCESSING --------------
+
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase2")
+
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+
+# Scaling numeric variables (lat and lng)
+dataset$lat <- scale(dataset$lat)
+dataset$lng <- scale(dataset$lng)
+
+# Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
+dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
+
+
+# -------------- Regression --------------
+
+
+# Ensuring 'subject_sex' is a factor with valid R variable names as levels
+dataset$subject_sex <- factor(dataset$subject_sex, levels = c("0", "1"))
+levels(dataset$subject_sex) <- c("Class0", "Class1") # Renaming levels to valid R variable names
+
+# Splitting the dataset into training and testing sets
+set.seed(123) 
+split <- sample.split(dataset$subject_sex, SplitRatio = 0.8)
+train_data <- subset(dataset, split == TRUE)
+test_data <- subset(dataset, split == FALSE)
+
+# Creating an initial logistic regression model
+initial_model <- glm(subject_sex ~ 1, data = train_data, family = "binomial")
+
+# Performing forward selection using AIC
+final_model <- step(initial_model, direction = "forward", scope = list(lower = ~1, upper = ~subject_age + subject_race), trace = 0)
+
+# Training the model using 10-fold cross-validation with ROC as the metric
+ctrl <- trainControl(method = "cv", number = 10, summaryFunction = twoClassSummary, classProbs = TRUE, savePredictions = "final")
+cv_model <- train(subject_sex ~ subject_age + subject_race, data = train_data, method = "glm", family = "binomial", trControl = ctrl, metric = "ROC")
+
+# Checking if the cross-validation model was trained successfully
+if(!is.null(cv_model)) { 
+   cv_predictions <- predict(cv_model, newdata = test_data, type = "prob")
+  
+  # Creating ROC Curve for the cross-validated model and finding the optimal threshold
+   roc_obj <- roc(response = test_data$subject_sex, predictor = cv_predictions[, "Class1"])
+   coords_obj <- coords(roc_obj, "best", best.method="closest.topleft")
+   optimal_threshold <- coords_obj$threshold
+  
+  # Using the optimal threshold to determine predicted classes
+   cv_predicted_classes <- factor(ifelse(cv_predictions[, "Class1"] > optimal_threshold, "Class1", "Class0"), levels = c("Class0", "Class1"))
+  
+  # Confusion matrix for the cross-validation model using the optimal threshold
+   cv_confusion_matrix <- confusionMatrix(cv_predicted_classes, test_data$subject_sex)
+   print(cv_confusion_matrix)
+  
+  # Calculating additional performance metrics
+   accuracy <- cv_confusion_matrix$overall['Accuracy']
+   precision <- posPredValue(cv_predicted_classes, test_data$subject_sex, positive = "Class1")
+   recall <- sensitivity(cv_predicted_classes, test_data$subject_sex, positive = "Class1")
+   F1_score <- ifelse((precision + recall) > 0, (2 * precision * recall) / (precision + recall), 0)
+   auc_value <- auc(roc_obj)
+  
+  # Printing the ROC curve and AUC value
+   plot(roc_obj, main = "ROC Curve for Logistic Regression")
+   print(paste("AUC Value:", auc_value))
+  
+  # Creating and printing a summary table
+   summary_table <- data.frame(
+   Metric = c("Accuracy", "Precision", "Recall", "F1 Score", "AUC"),
+   Value = c(accuracy, precision, recall, F1_score, auc_value))
+   print(summary_table)
+
+  } else {
+  
+    stop("The cross-validation model failed to train.")
+  
+  }
+```
+- Accuracy: We obtained an accuracy of 58%
+- Confusion Matrix: Good predictions for majority class (Class 0) but poor performance on minority class (Class 1), which reveals some imbalance.
+- Precision and Recall: High precision for Class0, low Negative Predictive Value, and moderate recall for Class0, with better specificity.
+- ROC Curve: Good separation of classes, with potential for improvement.
+
+
+Logistic Regression with 10-fold Cross-Validation and Forward Selection using BIC
+```{r}
+
+# -------------- PREPROCESSING --------------
+
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase2")
+
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+
+# Scaling numeric variables (lat and lng)
+dataset$lat <- scale(dataset$lat)
+dataset$lng <- scale(dataset$lng)
+
+# Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
+dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
+
+
+# -------------- Regression --------------
+
+
+# Ensuring 'subject_sex' is a factor with valid R variable names as levels
+dataset$subject_sex <- factor(dataset$subject_sex, levels = c("0", "1"))
+levels(dataset$subject_sex) <- c("Class0", "Class1") # Renaming levels to valid R variable names
+
+# Splitting the dataset into training and testing sets
+set.seed(123) 
+split <- sample.split(dataset$subject_sex, SplitRatio = 0.8)
+train_data <- subset(dataset, split == TRUE)
+test_data <- subset(dataset, split == FALSE)
+
+# Creating an initial logistic regression model
+initial_model <- glm(subject_sex ~ 1, data = train_data, family = "binomial")
+
+# Performing forward selection using BIC
+final_model <- stepAIC(initial_model, direction = "forward", scope = list(lower = ~1, upper = ~subject_age + subject_race), trace = 0, k = log(nrow(train_data)))
+
+# Training the model using 10-fold cross-validation with ROC as the metric
+ctrl <- trainControl(method = "cv", number = 10, summaryFunction = twoClassSummary, classProbs = TRUE, savePredictions = "final")
+cv_model <- train(subject_sex ~ subject_age + subject_race, data = train_data, method = "glm", family = "binomial", trControl = ctrl, metric = "ROC")
+
+# Checking if the cross-validation model was trained successfully
+if(!is.null(cv_model)) { 
+   cv_predictions <- predict(cv_model, newdata = test_data, type = "prob")
+  
+  # Creating ROC Curve for the cross-validated model and finding the optimal threshold
+   roc_obj <- roc(response = test_data$subject_sex, predictor = cv_predictions[, "Class1"])
+   coords_obj <- coords(roc_obj, "best", best.method="closest.topleft")
+   optimal_threshold <- coords_obj$threshold
+  
+  # Using the optimal threshold to determine predicted classes
+   cv_predicted_classes <- factor(ifelse(cv_predictions[, "Class1"] > optimal_threshold, "Class1", "Class0"), levels = c("Class0", "Class1"))
+  
+  # Confusion matrix for the cross-validation model using the optimal threshold
+   cv_confusion_matrix <- confusionMatrix(cv_predicted_classes, test_data$subject_sex)
+   print(cv_confusion_matrix)
+  
+  # Calculating additional performance metrics
+   accuracy <- cv_confusion_matrix$overall['Accuracy']
+   precision <- posPredValue(cv_predicted_classes, test_data$subject_sex, positive = "Class1")
+   recall <- sensitivity(cv_predicted_classes, test_data$subject_sex, positive = "Class1")
+   F1_score <- ifelse((precision + recall) > 0, (2 * precision * recall) / (precision + recall), 0)
+   auc_value <- auc(roc_obj)
+  
+  # Printing the ROC curve and AUC value
+   plot(roc_obj, main = "ROC Curve for Logistic Regression")
+   print(paste("AUC Value:", auc_value))
+  
+  # Creating and printing a summary table
+   summary_table <- data.frame(
+   Metric = c("Accuracy", "Precision", "Recall", "F1 Score", "AUC"),
+   Value = c(accuracy, precision, recall, F1_score, auc_value))
+   print(summary_table)
+
+  } else {
+  
+    stop("The cross-validation model failed to train.")
+  
+  }
+
+
+```
+We obtained the same results in BIC as AIC
+
+
+Logistic Regression with 10-fold Cross-Validation and Forward Selection using adjusted R-squared
+```{r}
+
+# -------------- PREPROCESSING --------------
+
+
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase2")
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+ 
+# Scaling numeric variables (lat and lng)
+dataset$lat <- scale(dataset$lat)
+dataset$lng <- scale(dataset$lng)
+
+# Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
+dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
+
+
+# -------------- Regression --------------
+
+
+# Making 'subject_sex' a factor
+dataset$subject_sex <- factor(dataset$subject_sex, levels = c(0, 1))
+
+# Making dummy variables for 'subject_race'
+dataset <- cbind(dataset, model.matrix(~subject_race - 1, data = dataset))
+
+# Removing the original 'subject_race' column
+dataset$subject_race <- NULL
+
+# Splitting the data set into features (X) and target variable (y)
+features <- setdiff(names(dataset), "subject_sex")
+X <- dataset[, features]
+y <- dataset$subject_sex
+
+# Creating 10-fold cross-validation folds
+set.seed(123)  # for reproducibility
+folds <- createFolds(y, k = 10)
+
+# Initializing a list to store results
+results <- vector("list", length = 10)
+
+for(i in 1:10) {
+  # Splitting the data into training and validation sets
+  train_index <- folds[[i]]
+  test_index <- setdiff(1:nrow(dataset), train_index)
+  train_data <- dataset[train_index, ]
+  test_data <- dataset[test_index, ]
+
+  # Performing forward selection on training data
+  initial_model <- glm(subject_sex ~ 1, data = train_data, family = "binomial")
+  step_model <- step(initial_model, direction = "forward", scope = list(lower = ~1, upper = ~.), trace = FALSE, k = log(nrow(train_data)), criterion = "adjr2")
+
+  # Evaluating the model on the validation set
+  predictions <- predict(step_model, newdata = test_data, type = "response")
+  predicted_classes <- ifelse(predictions > 0.5, 1, 0)
+  results[[i]] <- confusionMatrix(factor(predicted_classes, levels = c(0, 1)),
+                                  factor(test_data$subject_sex, levels = c(0, 1)))
+}
+
+# Results
+accuracy <- sapply(results, function(x) x$overall['Accuracy'])
+
+# Printing the average accuracy
+mean(accuracy)
+
+# Ensuring the outcome variable is a factor with two levels
+test_data$subject_sex <- factor(test_data$subject_sex, levels = c(0, 1))
+
+# Creating ROC curve
+roc_curve <- roc(test_data$subject_sex, predictions)
+
+# Plotting the ROC curve
+plot(roc_curve, main = "ROC Curve")
+
+# Calculateing the AUC
+auc_value <- auc(roc_curve)
+cat("AUC for Logistic Regression:", auc_value, "\n")
+
+```
+Given the nature of logistic regression, AIC or BIC might be a better fit than R-squared measures. This can be seen from the nature of the graph and AUC.
+
+
+Linear Discriminant Analysis
+```{r}
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase2")
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+
+# Scaling numeric variables (lat and lng)
+dataset$lat <- scale(dataset$lat)
+dataset$lng <- scale(dataset$lng)
+
+# Encoding 'male' and 'female' in subject_sex to factor levels
+dataset$subject_sex <- factor(dataset$subject_sex, levels = c("male", "female"))
+
+# Setting seed for reproducibility
+set.seed(123)
+
+# Control for 10-fold cross-validation
+ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+# Creating an lda model with 10-fold cross-validation
+lda_model <- train(subject_sex ~ subject_age + subject_race, data = dataset, method = "lda", trControl = ctrl, metric = "Accuracy")
+
+# Making predictions within each fold
+predictions <- predict(lda_model, newdata = dataset, type = "prob")
+
+# Calculate the probability of the positive class (female)
+predictions <- predictions[, "female"]
+
+# Convert the probabilities to factor levels based on a threshold
+predicted_classes <- factor(ifelse(predictions > 0.5, "female", "male"), levels = c("male", "female"))
+
+# confusion matrix
+conf_matrix <- confusionMatrix(predicted_classes, dataset$subject_sex)
+print(conf_matrix)
+
+# Displaying accuracy directly from the confusion matrix
+accuracy <- conf_matrix$overall['Accuracy']
+print(paste("Accuracy:", accuracy))
+
+# The ROC curve requires the actual factor levels and the predicted probabilities for the positive class
+roc_curve <- roc(response = dataset$subject_sex, predictor = predictions, levels = rev(levels(dataset$subject_sex)))
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for LDA")
+
+# Calculating AUC
+auc_value <- auc(roc_curve)
+cat("AUC:", auc_value, "\n")
+
+# Cross-validation results
+cv_results <- lda_model$resample
+print(cv_results)
+```
+The confusion matrix shows an accuracy of 0.805  so it suggests that around 80.5% of the predictions were correct.
+The AUC of 0.6243976 indicates moderate predictive ability.
+The LDA ROC Curve looks to have an acceptable shape, but the AUC is not exceptionally high, so maybe it could be improved with better predictors.
+
+
+Quadratic Discriminant Analysis
+```{r}
+
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase2")
+
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+
+# Scaling numeric variables (lat and lng)
+dataset$lat <- scale(dataset$lat)
+dataset$lng <- scale(dataset$lng)
+
+# Encoding 'male' and 'female' in subject_sex to factor levels
+dataset$subject_sex <- factor(dataset$subject_sex, levels = c("male", "female"))
+
+# Setting seed for reproducibility
+set.seed(123)
+
+# Control for 10-fold cross-validation
+ctrl <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+
+# Creating a qda model with 10-fold cross-validation
+qda_model <- train(subject_sex ~ subject_age + subject_race, data = dataset, method = "qda", trControl = ctrl, metric = "Accuracy")
+
+# Making predictions within each fold
+predictions <- predict(qda_model, newdata = dataset, type = "prob")
+
+# Calculate the probability of the positive class (female)
+predictions <- predictions[, "female"]
+
+# Convert the probabilities to factor levels based on a threshold
+predicted_classes <- factor(ifelse(predictions > 0.5, "female", "male"), levels = c("male", "female"))
+
+# confusion matrix
+conf_matrix <- confusionMatrix(predicted_classes, dataset$subject_sex)
+print(conf_matrix)
+
+# Displaying accuracy directly from the confusion matrix
+accuracy <- conf_matrix$overall['Accuracy']
+print(paste("Accuracy:", accuracy))
+
+# The ROC curve requires the actual factor levels and the predicted probabilities for the positive class
+roc_curve <- roc(response = dataset$subject_sex, predictor = predictions, levels = rev(levels(dataset$subject_sex)))
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for QDA")
+
+# Calculating AUC
+auc_value <- auc(roc_curve)
+cat("AUC:", auc_value, "\n")
+
+# Cross-validation results
+cv_results <- qda_model$resample
+print(cv_results)
+
+
+```
+- Accuracy: The model achieved an accuracy of approximately 80.33%, which indicates that a large proportion of the predictions match the actual labels.
+- Sensitivity: The sensitivity is extremely high (around 0.9965), suggesting that the model is excellent at identifying the positive class. 
+- ROC Curve: The ROC curve is a tool used to visualize the trade-off between the true positive rate and the false positive rate. The curve displayed in the graph shows that the model has potential, especially if further optimized.
+- AUC: The average AUC across the folds varies, with certain folds attaining greater than 0.5, which means that that the model has the ability to differentiate between classes in some circumstances. An AUC of 0.5, as found in certain folds, suggests performance comparable to random chance.
+The QDA model has identified some underlying patterns in the data, however there are some opportunities for improvement.
+
+
+Comparing logistic regression that was done using AIC, BIC, and R-squared, linear discriminant analysis (LDA), and quadratic discriminant analysis (QDA), the logistic regression model shows a moderate accuracy of 58% with imbalances noted in the confusion matrix. LDA achieves an accuracy of 80.5% and a moderate AUC, suggesting good predictive ability with room for improvement in the ROC curve. QDA, with an accuracy of approximately 80.33%, excels in sensitivity, but its ROC curve and variable AUC across folds indicate potential for optimization. Among these models, LDA performs the best overall due to its effective ability to distinguish between classes in the given dataset.
