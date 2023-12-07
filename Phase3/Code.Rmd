@@ -1,0 +1,101 @@
+
+Installing and importing libraries
+```{r}
+options(repos = c(CRAN = "https://cran.rstudio.com"))
+```
+
+```{r}
+# Installing needed packages
+install.packages("caret")
+install.packages("rpart")
+install.packages("rpart.plot")
+install.packages("randomForest")
+install.packages("ipred")
+```
+
+```{r}
+# Importing needed libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(ipred);
+```
+
+Loading the dataset and prepocessing
+```{r}
+# Setting the working directory
+setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
+
+# Loading the dataset into a variable called 'dataset'
+dataset <- read.csv("ky_louisville_2023_01_26.csv")
+```
+
+```{r}
+# Checking for missing values in each column
+sapply(dataset, function(x) sum(is.na(x)))
+# Removing rows that contain missing values
+dataset <- na.omit(dataset)
+print(nrow(dataset)) # We now have 3585 rows with no missing values
+
+# Removing duplicate rows if there are any.
+dataset <- unique(dataset)
+print(nrow(dataset)) # No duplicate rows, we still have 3585
+
+# Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
+dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
+```
+
+Decision trees
+```{r}
+# Splitting the dataset into training and testing sets
+# Set a seed for reproducibility
+set.seed(123)
+
+# Assuming 'dataset' is your data frame
+# Create indices for the training set (80%) and testing set (20%)
+indices <- createDataPartition(dataset$subject_sex, p = 0.8, list = FALSE)
+
+# Create the training set
+train_set <- dataset[indices, ]
+
+# Create the testing set
+test_set <- dataset[-indices, ]
+
+# Build a decision tree model
+tree_model <- rpart(subject_sex ~ subject_race, data = train_set, method = "class")
+rpart.plot(tree_model)
+
+# Make predictions on the testing set
+predictions <- predict(tree_model, newdata = test_set, type = 'class')
+
+# Assuming 'subject_sex' is your actual response variable in the testing set
+actual_labels <- test_set$subject_sex
+
+# Calculate confusion matrix
+conf_matrix <- table(actual_labels, predictions)
+
+# Calculate accuracy
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+
+# Calculate precision
+precision <- conf_matrix[2, 2] / sum(conf_matrix[, 2])
+
+# Calculate recall
+recall <- conf_matrix[2, 2] / sum(conf_matrix[2, ])
+
+# Calculate F1 score
+f1_score <- 2 * (precision * recall) / (precision + recall)
+
+# Print the results
+cat("Confusion Matrix:\n", conf_matrix, "\n\n")
+cat("Accuracy:", accuracy, "\n")
+cat("Precision:", precision, "\n")
+cat("Recall:", recall, "\n")
+cat("F1 Score:", f1_score, "\n")
+
+
+
+
+```
+
