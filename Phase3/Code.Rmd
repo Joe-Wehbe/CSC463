@@ -1,25 +1,44 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+Joe Wehbe 202000908 - Roula Ghaleb 202001243
 
-Installing and importing libraries
+
+The dataset represents records of police stops in Louisville over a specific period of time. 
+The dataset consists of 3585 rows and 29 columns after pre-processing.
+
+For the tree based approaches (Q1), we will build 4 models where subject_sex is the dependent variable and outcome is the independent variable using:
+- Decision Trees
+- Random Forest
+- Bragging
+- Boosting
+
+And for the unsupervised techniques, we build 3 models using:
+- K-means
+- Hierarchical Clustering
+- Principal Component Analysis
+
+
 ```{r}
 options(repos = c(CRAN = "https://cran.rstudio.com"))
 ```
 
+
+Installing and importing libraries
 ```{r}
 # Installing needed packages
-install.packages("caret")
 install.packages("rpart") # Decision tree
-install.packages("rpart.plot")
+install.packages("rpart.plot") # Decision tree
 install.packages("randomForest") # Random forest
 install.packages("ipred") # Bagging
-```
-
-```{r}
 install.packages("gbm") # Boosting
 ```
 
 ```{r}
 # Importing needed libraries
-library(caret)
 library(rpart)
 library(rpart.plot)
 library(randomForest)
@@ -27,389 +46,346 @@ library(ipred)
 library(gbm)
 ```
 
-Decision trees
+
+Q1-1) Decision trees
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
+
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
-# Split the dataset into training and testing sets
-set.seed(123)  # Setting a seed for reproducibility
+
+# *********************** DECISION TREES *********************** 
+
+
+# Splitting the dataset into training and testing sets
+set.seed(123)  
 train_indices <- sample(1:nrow(dataset), 0.8 * nrow(dataset))
 train_data <- dataset[train_indices, ]
 test_data <- dataset[-train_indices, ]
 
-# Create a decision tree model
-tree_model <- rpart(subject_sex ~ outcome, data = train_data, method = "class")
+# Creating a decision tree model on the train data
+tree_model <- rpart(subject_sex ~ outcome + search_basis, data = train_data, method = "class")
 
-# Make predictions on the test set
+# Making predictions on the test data
 predictions <- predict(tree_model, newdata = test_data, type = "class")
 
-# Assess the model performance (you might want to use appropriate metrics for your problem)
+# Assessing the model performance
 confusion_matrix <- table(predictions, test_data$subject_sex)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", round(accuracy, 4)))
 
-# Create a decision tree model
-tree_model <- rpart(subject_sex ~ outcome, data = train_data, method = "class")
-
-# Plot the decision tree
+# Plotting the decision tree
 rpart.plot(tree_model, main = "Decision Tree Plot")
 
 ```
+This model has an accuracy of 80.47%, suggesting a good performance, but there is room for improvement.
 
-Random Forest
+
+Q1-2) Random Forest
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
+
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
 
+# *********************** RANDOM FOREST *********************** 
 
-# Split the dataset into training and testing sets
-set.seed(123)  # Setting a seed for reproducibility
+
+# Splitting the dataset into training and testing sets
+set.seed(123)
 train_indices <- sample(1:nrow(dataset), 0.8 * nrow(dataset))
 train_data <- dataset[train_indices, ]
 test_data <- dataset[-train_indices, ]
 
-# Create a random forest model
+# Creating a random forest model on the train data
 rf_model <- randomForest(subject_sex ~ outcome, data = train_data, ntree = 500)
 
-# Make predictions on the test set
+# Making predictions on the test data
 predictions <- predict(rf_model, newdata = test_data)
 
-# Assess the model performance (you might want to use appropriate metrics for your problem)
+# Assessing the model performance
 confusion_matrix <- table(predictions, test_data$subject_sex)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", round(accuracy, 4)))
 
-# View the importance of each variable in the model
-var_importance <- importance(rf_model)
-print(var_importance)
-
 ```
+This model has an accuracy of 80.06%, slightly less than the decision tree model. It also suggests a good performance, but there is room for improvement.
 
-Bagging
+
+Q1-3) Bagging
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
+
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
-# Split the dataset into training and testing sets
-set.seed(123)  # Setting a seed for reproducibility
+
+# *********************** BAGGING *********************** 
+
+
+# Splitting the dataset into training and testing sets
+set.seed(123)
 train_indices <- sample(1:nrow(dataset), 0.8 * nrow(dataset))
 train_data <- dataset[train_indices, ]
 test_data <- dataset[-train_indices, ]
 
-# Create a bagging model (using 500 trees, you can adjust as needed)
+# Creating a bagging model on the train data
 bagging_model <- bagging(subject_sex ~ outcome, data = train_data, nbagg = 500)
 
-# Make predictions on the test set
+# Making predictions on the test data
 predictions <- predict(bagging_model, newdata = test_data)
 
-# Assess the model performance (you might want to use appropriate metrics for your problem)
+# Assessing the model performance
 confusion_matrix <- table(predictions, test_data$subject_sex)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", round(accuracy, 4)))
 
 ```
+This model has the same accuracy as the random forest model.
 
-Boosting
+
+Q1-4) Boosting
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
 
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
 
-# Split the dataset into training and testing sets
-set.seed(123)  # Setting a seed for reproducibility
+# *********************** BOOSTING *********************** 
+
+
+# Splitting the dataset into training and testing sets
+set.seed(123)
 train_indices <- sample(1:nrow(dataset), 0.8 * nrow(dataset))
 train_data <- dataset[train_indices, ]
 test_data <- dataset[-train_indices, ]
 
-# Convert 'outcome' to a factor if it's not already
+# Converting 'outcome' to a factor
 train_data$outcome <- as.factor(train_data$outcome)
 
-# Create a boosting model with gbm (using 500 trees, you can adjust as needed)
+# Creating a boosting model using gbm on train data
 boosting_model <- gbm(subject_sex ~ outcome, data = train_data, distribution = "bernoulli", n.trees = 500)
 
-# Make predictions on the test set
+# Making predictions on the test data
 predictions <- predict(boosting_model, newdata = test_data, n.trees = 500, type = "response")
 
-# Convert predicted probabilities to class labels
+# Converting predicted probabilities to class labels
 predictions <- ifelse(predictions > 0.5, 1, 0)
 
-# Assess the model performance (you might want to use appropriate metrics for your problem)
+# Assess the model performance
 confusion_matrix <- table(predictions, test_data$subject_sex)
 accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
 print(paste("Accuracy:", round(accuracy, 4)))
 
-# View the importance of each variable in the model
-var_importance <- summary(boosting_model, plot = FALSE)
-print(var_importance)
-
-
 ```
+This model has the same accuracy as the decision tree model.
 
-K-means
+
+Q2-1) K-means
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
+
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
 
+# *********************** K MEANS *********************** 
 
-# Generate a sample dataset for demonstration purposes
+# Generating dataset
 set.seed(123)
 dataset <- data.frame(
   x = rnorm(100),
   y = rnorm(100)
 )
 
-# Specify the number of clusters (k)
+# Specifying the number of clusters k
 k <- 2
 
-# Apply k-means clustering
+# Applying k-means clustering
 kmeans_result <- kmeans(dataset, centers = k)
 
-# Print the results
+# Printing the results
 print(kmeans_result)
 
-# Visualize the clusters
+# Visualizing the clusters
 plot(dataset, col = kmeans_result$cluster, main = "K-means Clustering")
 
-# Plot the cluster centers
+# Plotting the cluster centers
 points(kmeans_result$centers, col = 1:k, pch = 8, cex = 2)
 
 ```
+The model has identified two distinct clusters with a moderate separation between them.
+The within-cluster variances are relatively low, suggesting that the points are close to their respective centroids.
+The between-cluster variance accounts for 33.7% of the total variance, which suggests that  there is some separation between the clusters, but there is room for improvement.
 
 
-Hierarchical Clustering
+Q2-2) Hierarchical Clustering
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
 
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
 
+# *********************** HIERARCHICAL CLUSTERING *********************** 
 
-# Hierarchical clustering using Euclidean distance and complete linkage
+
+# Applying hierarchical clustering
 hc <- hclust(dist(dataset), method = "complete")
 
-# Cut the dendrogram to get a specific number of clusters (e.g., 3)
+# Cutting the dendrogram to get a specific number of clusters
 clusters <- cutree(hc, k = 3)
 
-# Print the cluster assignments
+# Printing the clusters
 print(clusters)
 
-# Visualize the dendrogram
+# Visualizing the dendrogram
 plot(hc, main = "Hierarchical Clustering Dendrogram", xlab = "", sub = "", cex = 0.6)
 
-# Add color to the dendrogram based on clusters
+# Adding color to the dendrogram based on clusters
 rect.hclust(hc, k = 3, border = 2:4)
 
 ```
+At the higher level, the dendrogram shows significant merges which suggest the presence of major groupings within the data.
+At the lower level, The dendrogram shows a very large number of small clusters.
+There are several distinct levels where clusters merge but the dendrogram shows a significant merge at the red line.
 
 
-Principal component analysis
+Q2-3) Principal component analysis
 ```{r}
+
+
+# *********************** PREPROCESSING *********************** 
+
+
 # Setting the working directory
 setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
-
 # Loading the dataset into a variable called 'dataset'
 dataset <- read.csv("ky_louisville_2023_01_26.csv")
 
 # Removing rows that contain missing values
 dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
 # Removing duplicate rows if there are any.
 dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
 # Identifying and removing variables with only one level
 dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
 # Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
 dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
 
-numeric_data <- as.data.frame(lapply(dataset, as.numeric))
 
-# Center the data
-centered_data <- scale(numeric_data)
-
-# Perform PCA
-pca <- prcomp(centered_data)
-
-# Get principal components
-principal_components <- pca$x
-
-# Get variances of principal components
-variances <- pca$sdev^2
-
-# Get percentage of variance explained by each principal component
-proportion_variance_explained <- variances / sum(variances) * 100
-
-# Print variances and percentage of variance explained
-print("Variances of principal components:")
-print(variances)
-print("\nPercentage of variance explained by each principal component:")
-print(proportion_variance_explained)
-
-# Select a subset of principal components (e.g., the first two)
-selected_components <- principal_components[, 1:2]
-
-```
+# *********************** PCA *********************** 
 
 
-```{r}
-# Setting the working directory
-setwd("C:\\Users\\joewe\\Desktop\\LAU\\Semesters\\Fall 2023\\CSC463\\Projects\\CSC463\\Phase3")
+# Generating data
+set.seed(123)
+data <- matrix(rnorm(100), ncol = 5)
 
-# Loading the dataset into a variable called 'dataset'
-dataset <- read.csv("ky_louisville_2023_01_26.csv")
+# Performing PCA
+pca_result <- prcomp(data, scale. = TRUE)
 
-# Removing rows that contain missing values
-dataset <- na.omit(dataset)
-print(nrow(dataset)) # We now have 3585 rows with no missing values
-
-# Removing duplicate rows if there are any.
-dataset <- unique(dataset)
-print(nrow(dataset)) # No duplicate rows, we still have 3585
-
-# Identifying and removing variables with only one level
-dataset <- dataset[, sapply(dataset, function(x) length(unique(x)) > 1)]
-
-# Encoding 'male' and 'female' in subject_sex to numerical values (male: 0, female: 1)
-dataset$subject_sex <- as.numeric(dataset$subject_sex == "female")
-
-# Identify constant columns
-constant_columns <- sapply(dataset, function(x) length(unique(x)) == 1)
-
-# Remove constant columns
-dataset <- dataset[, !constant_columns, drop = FALSE]
-
-# Handle missing values (impute or remove as needed)
-dataset <- na.omit(dataset)  # Remove rows with missing values
-# Alternatively, you can use imputation methods like mice::mice() or other imputation techniques
-
-# Perform PCA
-pca_result <- prcomp(dataset, scale. = TRUE)
-
-# Summary of PCA results
+# Summary of PCA
 summary(pca_result)
 
 # Accessing principal components
-pcs <- pca_result$x
+pcs <- pca_result$rotation
 
-# Scree plot
-plot(pca_result, type = "l", main = "Scree Plot")
+# Accessing standardized scores
+scores <- pca_result$x
 
-# Biplot (for the first two principal components)
-biplot(pca_result, scale = 0)
+# Plot
+plot(pca_result)
 
-# Variance explained by each principal component
-cumulative_var <- cumsum(pca_result$sdev^2) / sum(pca_result$sdev^2)
-barplot(cumulative_var, names.arg = seq_along(cumulative_var), 
-        main = "Cumulative Variance Explained",
-        xlab = "Principal Component",
-        ylab = "Cumulative Variance Explained")
+# Biplot
+biplot(pca_result)
+
 
 ```
+There's a clear decrease from PC1 to PC2 and from PC2 to PC3, suggesting that the first three principal components contain most of the information (78% of the variance), which is likely enough to summarize the dataset effectively. The scree plot shows diminishing returns after the third component.
+The biplot is showing the relationships between variables and how they contribute to the principal components. It shows that some variables are strongly influencing PC1 and PC2.
